@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Debug __main__ Module",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "log2mqtt",
+            "console": "integratedTerminal",
+            "args": [
+                "-f", "../proxy_sensor_config.yaml",
+                // "--verbose"
+            ]
+        }
+    ]
+}

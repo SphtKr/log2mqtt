@@ -1,0 +1,41 @@
+[build-system]
+# Defines the tools required to build the distribution artifacts
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Core metadata used by PyPI and installers
+name = "log2mqtt"
+version = "0.1.0"
+description = "Using a proxy access log (e.g. e2guardian), report activities into MQTT"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+   {name = "-", email = "fthasphtkr@gmail.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+# External dependencies installed automatically via pip
+dependencies = [
+    "paho-mqtt>=2.1.0",
+    "pyyaml"
+]
+
+[project.optional-dependencies]
+# Optional groups (install via: pip install ".[dev]")
+dev = [
+    "pytest"
+]
+
+[tool.black]
+# Configuration for your development tools
+line-length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

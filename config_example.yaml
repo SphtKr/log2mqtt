@@ -1,0 +1,75 @@
+mqtt:
+  host: mosquitto-internal.default.svc.cluster.local
+  port: 1882
+
+source:
+  # path: /var/log/e2guardian/access.log
+  path: /tmp/testlog.txt
+  delimiter: "\t"
+  emptyValue: "-" # signifies an unknown/empty/missing value
+  client:
+  - index: 3 # indexes are zero-based!
+  - index: 2 # order matters--prefer index 4 if present, fallback to index 3.
+  user:
+  - index: 1
+  url:
+  - index: 4
+  method:
+  - index: 5
+  userAgent:
+  - index: 9
+  
+clients:
+- name: hostname1
+  aliases:
+  - "192.168.2.110"
+- name: hostname2
+  aliases:
+  - "192.168.2.111"
+  - hostname3 # e.g. an old hostname that might show up
+  sensor: True # Make a sensor explicitly for this client
+- name: hostname4
+
+users:
+- name: usera
+  usernames:
+  - usera
+  - user.a
+  clients: # map single-user client hosts (e.g. iOS devices) to users explicitly
+  - hostname1
+  strategy: persist
+- name: userb
+  usernames:
+  - userb
+  - user.b
+  clients:
+  - hostname2
+  - hostname4
+
+ignore:
+- regex: |
+    .*\.tinkercad\.com/keep-alive/.*
+  method: POST
+
+activities:
+- name: TinkerCAD
+  patterns:  # These are three distinct patterns, with one argument each--any of the three matching is a positive match
+  - userAgent: |-
+      .*tinkercad.*
+  - url: |-
+      .*autodesk\.com/TinkerCAD/\.*
+  - hostname: tinkercad.com
+  timeout: 5 # seconds for the activity to timeout since last positive pattern match
+- name: Khan Academy
+  patterns: # This is one pattern with two arguments--all much match to get a positive match for the pattern.
+  - hostname: khanacademy.org
+    userAgent: |-
+      .*khanacademy.*
+  timeout: 30
+# It is possible to have multiple activity definitions with the same name, to group patterns or if a different timeout is needed for certain patterns
+- name: TinkerCAD
+  patterns:
+  - url: |-
+      .*\.tinkercad.com/export/\.*
+  timeout: 30
+  
