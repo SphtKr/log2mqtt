@@ -1,7 +1,10 @@
 import logging
 import re
+from typing import Any
 from urllib.parse import urlparse
 import uuid
+
+from log2mqtt.signal.rc import AsymmetricRCFilter
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,8 @@ class Pattern:
         self.method = None
         self.useragent_regex = None
         self.gain = 1
-        self.reverb = 0.5
+        self.decay = 1.0
+        self.attack = 0.0001
 
         # The config can contain multiple keys. We check each one.
         # Based on README:
@@ -48,10 +52,14 @@ class Pattern:
         if 'gain' in config:
             self.gain = config['gain']
 
-        if 'reverb' in config:
-            self.reverb = config['reverb']
-            # 0 = 0, 1 = 0.5, 2 ~= 0.8, 4 ~= 0.95
-            self.reverb_factor = 1 - ( 1 / ((config['reverb'] ** 2) + 1) )
+        if 'decay' in config:
+            self.decay = config['decay']
+        else:
+            if 'reverb' in config: #TODO: Remove!
+                self.decay = config['reverb'] # Not good but something
+     
+        if 'attack' in config:
+            self.attack = config['attack']
 
     @property
     def id(self):
@@ -100,3 +108,14 @@ class Pattern:
             
         logger.debug(f"Pattern {self._id} matched ({url}, {method}, {useragent})")
         return True
+        
+    def filter_factory(self, state: dict[Any,Any] = {}) -> AsymmetricRCFilter:
+
+        if 'signal_value' in state:
+            signal_value = state['signal_value']
+        else:
+            signal_value = 0
+
+        filter = AsymmetricRCFilter( self.attack, self.decay, self.gain, signal_value )
+
+        return filter

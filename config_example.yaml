@@ -56,20 +56,28 @@ activities:
   patterns:  # These are three distinct patterns, with one argument each--any of the three matching is a positive match
   - userAgent: |-
       .*tinkercad.*
+    # gain: 1.5
+    decay: 15
   - url: |-
       .*autodesk\.com/TinkerCAD/\.*
+    decay: 15
   - hostname: tinkercad.com
-  timeout: 5 # seconds for the activity to timeout since last positive pattern match
+    decay: 15
 - name: Khan Academy
   patterns: # This is one pattern with two arguments--all much match to get a positive match for the pattern.
-  - hostname: khanacademy.org
-    userAgent: |-
+  - userAgent: |-
       .*khanacademy.*
-  timeout: 30
-# It is possible to have multiple activity definitions with the same name, to group patterns or if a different timeout is needed for certain patterns
-- name: TinkerCAD
+    decay: 15
+  - hostname: khanacademy.org
+    decay: 15
+- name: Typing Club
   patterns:
-  - url: |-
-      .*\.tinkercad.com/export/\.*
-  timeout: 30
-  
+  - hostname: typingclub.com
+    decay: 15
+  - hostname: edclub.com
+    decay: 15
+- name: Streamyfin
+  patterns: # This is one pattern with two arguments--all much match to get a positive match for the pattern.
+  - userAgent: |-
+      .*Streamyfin.*
+    decay: 50
