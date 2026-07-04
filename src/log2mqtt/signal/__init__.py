@@ -1,0 +1,1 @@
+from log2mqtt.signal.filter import Filter

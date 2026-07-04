@@ -1,14 +1,22 @@
+from __future__ import annotations
+
 import time
 import math
+from typing import TYPE_CHECKING
 
-class AsymmetricRCFilter:
+from log2mqtt.signal import Filter
+
+if TYPE_CHECKING:
+    from log2mqtt.sensor import Pattern, Sensor
+
+class AsymmetricRCFilter(Filter):
     """
     Where: Delta-T is the elapsed time since the last event (in seconds). Tau attack or Tau Delay is the target 
     time constant (in seconds). This represents the time it takes for the filter to reach roughly 63.2% of its 
     target value.
     Rule of thumb: A pulse will fully settle/decay to its final value in about Tau * r
     """
-    def __init__(self, tau_attack, tau_decay, event_value, initial_value: float = 0.0, initial_time: float|None = None):
+    def __init__(self, tau_attack: float, tau_decay: float, event_value: float, *, owner: Pattern|Sensor|None = None, initial_value: float = 0.0, initial_time: float|None = None):
         """
         :param tau_attack: Attack time constant (seconds)
         :param tau_decay: Decay time constant (seconds)
@@ -17,10 +25,7 @@ class AsymmetricRCFilter:
         """
         self.tau_attack = tau_attack
         self.tau_decay = tau_decay
-        self.event_value = event_value
-        # Initial value may be provided for "warm start"--restore state from previous run--in the future.
-        self.y_prev = initial_value
-        self.last_time = time.monotonic() if initial_time is None else initial_time  # Tracks the timestamp of the last event
+        super().__init__(event_value, owner=owner, initial_value=initial_value, initial_time=initial_time)
 
     def process_event(self, x_new, current_time=None):
         """
