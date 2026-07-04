@@ -43,9 +43,9 @@ class Activity:
         """Returns the unique ID of the activity."""
         return self._id
 
-    def matches(self, url, method, useragent):
+    def matches(self, url, method, useragent) -> Pattern|None:
         """
-        Returns true or false if any of the patterns in this activity match the input.
+        Returns the first pattern within this activity that matches the input.
         """
         # If there are no patterns, we assume this activity doesn't match anything.
         if not self.patterns:
@@ -55,5 +55,5 @@ class Activity:
         for pattern in self.patterns:
             if pattern.matches(url, method, useragent):
                 return pattern
-                
+
         return None

@@ -40,9 +40,9 @@ def test_activity_matches_success():
     activity = Activity(config)
     
     # Matches first pattern
-    assert activity.matches("https://example.com/path", "GET", "Mozilla/5.0") is True
+    assert activity.matches("https://example.com/path", "GET", "Mozilla/5.0") is not None
     # Matches second pattern
-    assert activity.matches("https://other.com", "POST", "GoogleBot/2.1") is True
+    assert activity.matches("https://other.com", "POST", "GoogleBot/2.1") is not None
 
 def test_activity_matches_failure():
     config = {
@@ -54,15 +54,15 @@ def test_activity_matches_failure():
     activity = Activity(config)
     
     # Wrong method
-    assert activity.matches("https://example.com/path", "POST", "Mozilla/5.0") is False
+    assert activity.matches("https://example.com/path", "POST", "Mozilla/5.0") is None
     # Wrong hostname
-    assert activity.matches("https://sample.com/path", "GET", "Mozilla/5.0") is False
+    assert activity.matches("https://sample.com/path", "GET", "Mozilla/5.0") is None
 
 def test_activity_no_patterns():
     config = {'name': 'Empty Activity', 'patterns': []}
     activity = Activity(config)
     
-    assert activity.matches("https://example.com", "GET", "Mozilla/5.0") is False
+    assert activity.matches("https://example.com", "GET", "Mozilla/5.0") is None
 
 def test_activity_empty_config():
     config = {}
@@ -70,4 +70,4 @@ def test_activity_empty_config():
     
     assert activity.name is None
     assert activity.timeout == 0
-    assert activity.matches("https://example.com", "GET", "Mozilla/5.0") is False
+    assert activity.matches("https://example.com", "GET", "Mozilla/5.0") is None
