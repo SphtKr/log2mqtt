@@ -4,7 +4,7 @@ from typing import Dict
 from uuid import UUID
 
 from log2mqtt.activity import Activity, Pattern
-from log2mqtt.signal.rc import AsymmetricRCFilter
+from log2mqtt.signal.filter import Filter
 
 DEFAULT_GAIN=1.0
 DEFAULT_REVERB=0.5 # signal retains 0.5 * its rmaining "volume" for every second passed
@@ -19,9 +19,7 @@ class Sensor:
         self._last_event_at = datetime.now()
         self._last_update_at = datetime.now()
         self._current_activity = None
-        self._pattern_filters: Dict[UUID, AsymmetricRCFilter] = {} # key: Pattern.id
-        # self._pattern_echoes: Dict[UUID, float] = {} # key: Pattern.id
-        self._known_patterns: Dict[UUID, Pattern] = {} # key: Pattern.id
+        self._pattern_filters: Dict[UUID, Filter] = {} # key: Pattern.id
         self._known_activities: Dict[UUID, Activity] = {} # key: Activity.id
         self._pattern_activities: Dict[UUID, UUID] = {} # key: Pattern.id, value: Activity.id
 
@@ -41,31 +39,33 @@ class Sensor:
         if activity.id not in self._known_activities:
             self._known_activities[activity.id] = activity
 
-        # If pattern not in _known_patterns, add it, and add the pattern.id and activity.id to _pattern_activities
-        if pattern.id not in self._known_patterns:
-            self._known_patterns[pattern.id] = pattern
+        if pattern.id not in self._pattern_filters:
             self._pattern_filters[pattern.id] = pattern.filter_factory()
             self._pattern_activities[pattern.id] = activity.id
         
         self._decay()
 
         # Record a "hit" on the pattern
-        signal_value = self._pattern_filters[pattern.id].record_event()
-        logger.debug(f"Sensor {self.name} got a {self._known_activities[self._pattern_activities[pattern.id]].name} signal value of {signal_value:.3f}")
+        filter_instance = self._pattern_filters[pattern.id]
+        signal_value = filter_instance.record_event()
+        activity_name = self._known_activities[self._pattern_activities[pattern.id]].name
+        logger.debug(f"Sensor {self.name} got a {activity_name} signal value of {signal_value:.3f}")
 
         a = self._determine_activity()
 
         self._set_activity(a)
 
     def _decay(self):
-        for p_id, echo_value in list(self._pattern_filters.items()):
-            p = self._known_patterns.get(p_id, None)
-            if p:
-                echo_value = self._pattern_filters[p_id].signal # handles time-based decay
-                logger.debug(f"Sensor {self.name} got a {self._known_activities[self._pattern_activities[p_id]].name} echo value of {echo_value:.3f}")
-            else:
-                # If for some reason the pattern is no longer known, remove the filter
+        for p_id, filter_instance in list(self._pattern_filters.items()):
+            owner = filter_instance.owner
+            if owner is None:
                 del self._pattern_filters[p_id]
+                continue
+
+            echo_value = filter_instance.signal # handles time-based decay
+            activity_id = self._pattern_activities.get(p_id)
+            activity_name = self._known_activities[activity_id].name if activity_id in self._known_activities else '<Unknown>'
+            logger.debug(f"Sensor {self.name} got a {activity_name} echo value of {echo_value:.3f}")
     
     def _determine_activity(self) -> Activity|None:
         top = (0, None)
@@ -88,7 +88,6 @@ class Sensor:
         ...
 
     def _cleanup(self):
-        self._known_patterns = {}
         self._known_activities = {}
         self._pattern_filters = {}
         self._pattern_activities = {}

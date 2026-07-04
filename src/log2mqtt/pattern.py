@@ -115,7 +115,8 @@ class Pattern:
             signal_value = state['signal_value']
         else:
             signal_value = 0
+        #FIXME: Should not support inital_value without initial_time!
 
-        filter = AsymmetricRCFilter( self.attack, self.decay, self.gain, signal_value )
+        filter = AsymmetricRCFilter( self.attack, self.decay, self.gain, owner=self, initial_value=signal_value)
 
         return filter
