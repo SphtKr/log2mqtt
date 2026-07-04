@@ -79,6 +79,7 @@ class Controller:
             return
         
         pattern = None
+        activity = None
         for activity in self._activities:
             pattern = activity.matches(url, method, user_agent)
             if pattern:

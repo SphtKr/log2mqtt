@@ -1,6 +1,6 @@
 import logging
 import uuid
-from src.log2mqtt.pattern import Pattern
+from log2mqtt.pattern import Pattern
 
 logger = logging.getLogger(__name__)
 
