@@ -8,6 +8,7 @@ import yaml
 from log2mqtt.activity import Activity
 from log2mqtt.logprocessor import LogProcessor
 from log2mqtt.sensor import Sensor
+from log2mqtt.mqtt_observer import MQTTActivityObserver
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +21,26 @@ class Controller:
         self._client_sensors: Dict[str,Sensor] = {}
         self._user_sensors: Dict[str,Sensor] = {}
         self._user_clients: Dict[str,Sensor] = {}
+        self._mqtt_senders = []
         ...
 
     def load_config(self, config_path: str):
         with open(config_path, 'r') as f:
             self._config = yaml.safe_load(f)  # Load the YAML file and store it in _config
 
+        self._activities = []
+        self._client_sensors = {}
+        self._user_sensors = {}
+        self._user_clients = {}
+        self._mqtt_senders = []
+
         if 'ignore' in self._config:
             self._ignore_activity = Activity({"name":"ignore", "patterns": self._config['ignore']})
 
-        for activity_config in self._config.get('activities'):
+        for activity_config in self._config.get('activities', []):
             self._activities.append(Activity(activity_config))
+
+        mqtt_config = self._config.get('mqtt', {}) or {}
 
         for client_config in self._config.get('clients', []):
             sensor = Sensor(client_config.get('name', None))
@@ -38,6 +48,10 @@ class Controller:
                 self._client_sensors[client_config.get('name')] = sensor
             for alias in client_config.get('aliases', []):
                 self._client_sensors[alias] = sensor
+            if mqtt_config.get('host'):
+                sender = MQTTActivityObserver(sensor, mqtt_config)
+                sensor.register_observer(sender)
+                self._mqtt_senders.append(sender)
             #TOOO: Handle `sensor` bool in config
         logger.debug(f"{self._client_sensors=}")
 
@@ -49,9 +63,16 @@ class Controller:
                 self._user_sensors[username]  = sensor
             for client in user_config.get('clients',[]):
                 self._user_clients[client] = sensor
+            if mqtt_config.get('host'):
+                sender = MQTTActivityObserver(sensor, mqtt_config)
+                sensor.register_observer(sender)
+                self._mqtt_senders.append(sender)
         logger.debug(f"{self._user_sensors=}")
             
     async def start(self):
+        for sender in self._mqtt_senders:
+            await sender.connect()
+
         self._logparser = LogProcessor(self._config['source'], self._log_callback)
         self._update_task = asyncio.create_task(self._update_timer())
         try:
