@@ -17,10 +17,7 @@ class Controller:
         self._config = {}  # Initialize an empty dict to store the config
         self._ignore_activity = None
         self._activities = []
-        self._sensors = []
-        self._client_sensors: Dict[str,Sensor] = {}
-        self._user_sensors: Dict[str,Sensor] = {}
-        self._user_clients: Dict[str,Sensor] = {}
+        self._sensors = {}
         self._mqtt_senders = []
         ...
 
@@ -37,9 +34,7 @@ class Controller:
             raise Exception(f"An unexpected error occurred while loading the config file {config_path}: {str(e)}")
     
         self._activities = []
-        self._client_sensors = {}
-        self._user_sensors = {}
-        self._user_clients = {}
+        self._sensors = {}
         self._mqtt_senders = []
 
         if 'ignore' in self._config:
@@ -50,32 +45,18 @@ class Controller:
 
         mqtt_config = self._config.get('mqtt', {}) or {}
 
-        for client_config in self._config.get('clients', []):
-            sensor = Sensor(client_config.get('name', None), 'client')
-            if 'name' in client_config:
-                self._client_sensors[client_config.get('name')] = sensor
-            for alias in client_config.get('aliases', []):
-                self._client_sensors[alias] = sensor
-            if mqtt_config.get('host') and client_config.get("publish", False):
+        for sensor_config in self._config.get('sensors', []):
+            sensor = Sensor(sensor_config.get('name', None), sensor_config.get('type', 'sensor'))
+            if 'name' in sensor_config:
+                self._sensors[sensor_config.get('name')] = sensor
+            for alias in sensor_config.get('aliases', []):
+                self._sensors[alias] = sensor
+            if mqtt_config.get('host') and sensor_config.get("publish", False):
                 sender = MQTTActivityObserver(sensor, mqtt_config)
                 sensor.register_observer(sender)
                 self._mqtt_senders.append(sender)
-            #TOOO: Handle `sensor` bool in config
-        logger.debug(f"{self._client_sensors=}")
+        logger.debug(f"{self._sensors=}")
 
-        for user_config in self._config.get('users', []):
-            sensor = Sensor(user_config.get('name', None), 'user')
-            if 'name' in user_config:
-                self._user_sensors[user_config.get('name')] = sensor
-            for username in user_config.get('usernames',  []):
-                self._user_sensors[username]  = sensor
-            for client in user_config.get('clients',[]):
-                self._user_clients[client] = sensor
-            if mqtt_config.get('host') and user_config.get("publish", False):
-                sender = MQTTActivityObserver(sensor, mqtt_config)
-                sensor.register_observer(sender)
-                self._mqtt_senders.append(sender)
-        logger.debug(f"{self._user_sensors=}")
 
     async def start(self):
         try:
@@ -104,7 +85,7 @@ class Controller:
             maxwait = 1.0 #TODO: Make period configurable?
             try:
                 await asyncio.sleep(maxwait)
-                sensors = { sensor for sensor in list(self._client_sensors.values()) + list(self._user_sensors.values()) }
+                sensors = { sensor for sensor in list(self._sensors.values()) }
                 for sensor in sensors:
                     logger.debug(f"Updating sensor {sensor.name}")
                     sensor.update_state()
@@ -128,10 +109,10 @@ class Controller:
             pattern = None
             return
             
-        user_sensor = self._user_sensors.get(user, None) if user else self._user_clients.get(client,None)
-
-        client_sensor = self._client_sensors.get(client, None)
+        user_sensor = self._sensors.get(user, None)
+        client_sensor = self._sensors.get(client, None)
         logger.debug(f"Got user_sensor {user_sensor.name if user_sensor else '-'} and client_sensor {client_sensor.name if client_sensor else '-'}")
+
         if client_sensor:
             logger.debug(f"Sending event to {client_sensor.name}")
             client_sensor.record_event(activity, pattern)
