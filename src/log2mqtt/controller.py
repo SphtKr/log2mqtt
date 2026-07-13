@@ -25,9 +25,17 @@ class Controller:
         ...
 
     def load_config(self, config_path: str):
-        with open(config_path, 'r') as f:
-            self._config = yaml.safe_load(f)  # Load the YAML file and store it in _config
+        try:
+            with open(config_path, 'r') as f:
+                self._config = yaml.safe_load(f)
 
+        except FileNotFoundError:
+            raise Exception(f"The file {config_path} was not found.")
+        except yaml.YAMLError as e:
+            raise Exception(f"There was an error parsing the YAML file {config_path}: {str(e)}")
+        except Exception as e:
+            raise Exception(f"An unexpected error occurred while loading the config file {config_path}: {str(e)}")
+    
         self._activities = []
         self._client_sensors = {}
         self._user_sensors = {}
@@ -68,8 +76,18 @@ class Controller:
                 sensor.register_observer(sender)
                 self._mqtt_senders.append(sender)
         logger.debug(f"{self._user_sensors=}")
-            
+
     async def start(self):
+        try:
+            with open(self._config['source']['path'], 'r'):
+                pass
+        except KeyError:
+            raise Exception(f"Source path not defined at source.path in config; verify configuration.")
+        except FileNotFoundError:
+            raise Exception(f"The file {self._config['source']['path']} was not found.")
+        except IOError:
+            raise Exception(f"An error occurred while reading the file {self._config['source']}.")
+
         for sender in self._mqtt_senders:
             await sender.connect()
 
