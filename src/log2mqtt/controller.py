@@ -43,12 +43,12 @@ class Controller:
         mqtt_config = self._config.get('mqtt', {}) or {}
 
         for client_config in self._config.get('clients', []):
-            sensor = Sensor(client_config.get('name', None))
+            sensor = Sensor(client_config.get('name', None), 'client')
             if 'name' in client_config:
                 self._client_sensors[client_config.get('name')] = sensor
             for alias in client_config.get('aliases', []):
                 self._client_sensors[alias] = sensor
-            if mqtt_config.get('host'):
+            if mqtt_config.get('host') and client_config.get("publish", False):
                 sender = MQTTActivityObserver(sensor, mqtt_config)
                 sensor.register_observer(sender)
                 self._mqtt_senders.append(sender)
@@ -56,14 +56,14 @@ class Controller:
         logger.debug(f"{self._client_sensors=}")
 
         for user_config in self._config.get('users', []):
-            sensor = Sensor(user_config.get('name', None))
+            sensor = Sensor(user_config.get('name', None), 'user')
             if 'name' in user_config:
                 self._user_sensors[user_config.get('name')] = sensor
             for username in user_config.get('usernames',  []):
                 self._user_sensors[username]  = sensor
             for client in user_config.get('clients',[]):
                 self._user_clients[client] = sensor
-            if mqtt_config.get('host'):
+            if mqtt_config.get('host') and user_config.get("publish", False):
                 sender = MQTTActivityObserver(sensor, mqtt_config)
                 sensor.register_observer(sender)
                 self._mqtt_senders.append(sender)

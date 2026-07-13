@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 
 class Sensor(ActivitySubject):
 
-    def __init__(self, name: str|None = None):
+    def __init__(self, name: str|None = None, subject_type: str|None = None):
         super().__init__()
         self._name = name
+        self._subject_type = subject_type
         self._last_event_at = datetime.now()
         self._last_update_at = datetime.now()
         self._current_activity = None
@@ -26,6 +27,10 @@ class Sensor(ActivitySubject):
     @property
     def name(self):
         return self._name
+    
+    @property
+    def subject_type(self):
+        return self._subject_type
     
     def record_event(self, activity: Activity, pattern: Pattern):
         """

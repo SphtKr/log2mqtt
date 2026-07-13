@@ -21,8 +21,10 @@ class MQTTActivityObserver(ActivityObserver):
         self._client = client
         self._connected = False
         self._sensor_name = sensor.name or "unnamed"
-        self._object_id = self._sanitize_identifier(self._sensor_name)
-        self._unique_id = f"log2mqtt_{self._object_id}"
+        self._safe_name = self._sanitize_identifier(self._sensor_name)
+        self._unique_id = f"log2mqtt{'' if sensor.subject_type is None else f'_{sensor.subject_type}'}_{self._safe_name}"
+        self._object_id = self._unique_id # per docs best practice
+        self._default_entity_id = f"sensor.{self._unique_id}"
         self._discovery_topic = self._build_discovery_topic()
         self._state_topic = self._build_state_topic()
 
@@ -78,20 +80,21 @@ class MQTTActivityObserver(ActivityObserver):
         payload = {
             "name": self._sensor_name,
             "unique_id": self._unique_id,
+            "default_entity_id": self._default_entity_id,
             "state_topic": self._state_topic,
-            "icon": "mdi:motion-sensor",
+            "icon": "mdi:clipboard-pulse",
             "force_update": True,
         }
         await self._publish(self._discovery_topic, json.dumps(payload), retain=True)
 
     async def _publish_state(self, activity: Activity | None) -> None:
-        value = activity.name if activity else ""
+        value = activity.name if activity else None
         await self._publish(self._state_topic, value, retain=True)
 
     async def _publish(self, topic: str, payload: Any, retain: bool = False) -> None:
         if self._client is None:
             raise RuntimeError("MQTT client is not configured")
-        await asyncio.to_thread(self._client.publish, topic, payload, qos=0, retain=retain)
+        await asyncio.to_thread(self._client.publish, topic, payload, qos=1, retain=retain)
 
     def update(self, sensor: Sensor, activity: Activity | None, signal: float) -> None:
         try:
