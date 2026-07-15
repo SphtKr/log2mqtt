@@ -26,6 +26,7 @@ class Pattern:
         self.hostname_substring = None
         self.method = None
         self.useragent_regex = None
+        self.initiate = True
         self.gain = 1
         self.decay = 1.0
         self.attack = 0.0001
@@ -48,6 +49,9 @@ class Pattern:
             
         if 'userAgent' in config:
             self.useragent_regex = re.compile(config['userAgent'])
+
+        if 'initiate' in config:
+            self.initiate = config['initiate']
 
         if 'gain' in config:
             self.gain = config['gain']

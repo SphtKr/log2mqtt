@@ -98,25 +98,28 @@ class Controller:
         if self._ignore_activity and self._ignore_activity.matches(url, method, user_agent):
             return
         
+        user_sensor = self._sensors.get(user, None)
+        client_sensor = self._sensors.get(client, None)
+        logger.debug(f"Got user_sensor {user_sensor.name if user_sensor else '-'} and client_sensor {client_sensor.name if client_sensor else '-'}")
+        sensors = [s for s in [user_sensor, client_sensor] if s]
+        if len(sensors) <= 0: return
+
         pattern = None
         activity = None
         for activity in self._activities:
             pattern = activity.matches(url, method, user_agent)
             if pattern:
-                break
+                if pattern.initiate:
+                    allowed_sensors = sensors
+                else:
+                    allowed_sensors = [s for s in sensors if s and s.current_activity == activity]
+                    logger.debug(f"Sustaining Activity {activity.name} on sensors {', '.join([s.name for s in allowed_sensors])}")
+                if len(allowed_sensors) > 0:
+                    for sensor in allowed_sensors:
+                        logger.debug(f"Sending event to {sensor.name}")
+                        sensor.record_event(activity, pattern)
+                    break
         else:
             activity = None
             pattern = None
             return
-            
-        user_sensor = self._sensors.get(user, None)
-        client_sensor = self._sensors.get(client, None)
-        logger.debug(f"Got user_sensor {user_sensor.name if user_sensor else '-'} and client_sensor {client_sensor.name if client_sensor else '-'}")
-
-        if client_sensor:
-            logger.debug(f"Sending event to {client_sensor.name}")
-            client_sensor.record_event(activity, pattern)
-
-        if user_sensor:
-            logger.debug(f"Sending event to {user_sensor.name}")
-            user_sensor.record_event(activity, pattern)

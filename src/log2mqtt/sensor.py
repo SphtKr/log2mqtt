@@ -32,6 +32,10 @@ class Sensor(ActivitySubject):
     def subject_type(self):
         return self._subject_type
     
+    @property
+    def current_activity(self):
+        return self._current_activity
+    
     def record_event(self, activity: Activity, pattern: Pattern):
         """
         Called when a new pattern match has been observed relevant to this sensor.
@@ -87,8 +91,10 @@ class Sensor(ActivitySubject):
         return self._known_activities[self._pattern_activities[top[1]]], top[0]
 
     def _set_activity(self, activity: Activity|None, signal: float):
+        logger.debug(f"set_activity {activity.name if activity else '<None>'} signal {signal}")
+        if self._current_activity != activity:
+            logger.info(f"Sensor {self._name or '<Unnamed>'} changed to activity {activity.name if activity else '<None>'}")
         self._current_activity = activity
-        logger.info(f"Sensor {self._name or '<Unnamed>'} set activity {activity.name if activity else '<None>'}")
         self.notify_observers(self, activity, signal)
 
     def _cleanup(self):
