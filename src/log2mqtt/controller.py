@@ -5,6 +5,7 @@ import logging
 from typing import Dict
 
 import yaml
+from log2mqtt.aggregate import AggregateSensor
 from log2mqtt.activity import Activity
 from log2mqtt.logprocessor import LogProcessor
 from log2mqtt.sensor import Sensor
@@ -46,9 +47,37 @@ class Controller:
         mqtt_config = self._config.get('mqtt', {}) or {}
 
         for sensor_config in self._config.get('sensors', []):
+            name = sensor_config.get('name','sensor')
+            #TODO: Skip duplicate names
+            if sensor_config.get('type' == 'aggregate') or sensor_config.get('components',False):
+                if sensor_config.get('type','') != 'aggregate':
+                    logger.warning(f"Non-aggregate sensor {name} has components, skipping!")
+                    continue
+                if len(sensor_config.get('components',[])) <= 0:
+                    logger.warning(f"No components for aggregate sensor {name}, skipping.")
+                    continue
+                strategy = sensor_config.get('strategy','latest')
+                if strategy not in ['priority','latest']:
+                    logger.warning(f"Unknown strategy \"{strategy}\" specified, using \"latest\" instead!")
+                    strategy = 'latest'
+                sensor = AggregateSensor(name, "aggregate", strategy)
+                pri_list = []
+                for component_config in sensor_config.get('components', []):
+                    comp_name = component_config.get('name')
+                    if comp_name in self._sensors:
+                        comp_sensor = self._sensors[comp_name]
+                        pri_list.append(comp_sensor)
+                        comp_sensor.register_observer(sensor)
+                    else:
+                        logger.warning(f"Unknown sensor name {comp_name} listed as component, ignoring!")
+                if strategy == 'priority':
+                    sensor.set_priority(pri_list)
+                if strategy == 'latest':
+                    pass
             sensor = Sensor(sensor_config.get('name', None), sensor_config.get('type', 'sensor'))
             if 'name' in sensor_config:
                 self._sensors[sensor_config.get('name')] = sensor
+            self._sensors[name] = sensor
             for alias in sensor_config.get('aliases', []):
                 self._sensors[alias] = sensor
             if mqtt_config.get('host') and sensor_config.get("publish", False):
