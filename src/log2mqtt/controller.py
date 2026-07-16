@@ -10,6 +10,7 @@ from log2mqtt.activity import Activity
 from log2mqtt.logprocessor import LogProcessor
 from log2mqtt.sensor import Sensor
 from log2mqtt.mqtt_observer import MQTTActivityObserver
+from log2mqtt.proxy import ProxySensor
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +75,17 @@ class Controller:
                     sensor.set_priority(pri_list)
                 if strategy == 'latest':
                     pass
-            sensor = Sensor(sensor_config.get('name', None), sensor_config.get('type', 'sensor'))
-            if 'name' in sensor_config:
-                self._sensors[sensor_config.get('name')] = sensor
+            elif sensor_config.get('type' == 'proxy') or sensor_config.get('topic',False):
+                if sensor_config.get('type','') != 'proxy':
+                    logger.warning(f"Non-proxy sensor {name} has topic, skipping!")
+                    continue
+                if len(sensor_config.get('proxy',[])) <= 0:
+                    logger.warning(f"No topic for proxy sensor {name}, skipping.")
+                    continue
+                topic = sensor_config.get('topic')
+                sensor = ProxySensor(name, "proxy", topic)
+            else:
+                sensor = Sensor(name, sensor_config.get('type', 'sensor'))
             self._sensors[name] = sensor
             for alias in sensor_config.get('aliases', []):
                 self._sensors[alias] = sensor
