@@ -7,6 +7,7 @@ from paho.mqtt.client import CallbackAPIVersion, Client
 
 from log2mqtt.activity import Activity
 from log2mqtt.sensor import Sensor
+from log2mqtt.mqtt_manager import MQTTManager
 
 logger = logging.getLogger(__name__)
 
@@ -17,16 +18,18 @@ class ProxySensor(Sensor):
         name: str | None = None,
         subject_type: str | None = None,
         state_topic: str | None = None,
-        mqtt_config: dict[str, Any] | None = None,
-        client: Any | None = None,
+        mqtt_manager: "MQTTManager" | None = None,
     ) -> None:
         super().__init__(name, subject_type)
         if not state_topic:
             raise ValueError("state_topic is required for ProxySensor")
 
         self._state_topic = state_topic
-        self._mqtt_config = mqtt_config or {}
-        self._client = client
+        # Prefer explicit manager; otherwise expect a default manager to exist
+        if mqtt_manager is not None:
+            self._manager = mqtt_manager
+        else:
+            self._manager = MQTTManager.get_default()
         self._connected = False
         self._activity_by_name: dict[str, Activity] = {}
 
@@ -34,42 +37,10 @@ class ProxySensor(Sensor):
         if self._connected:
             return
 
-        host = self._mqtt_config.get("host")
-        if not host:
-            raise ValueError("MQTT host is required")
-
-        client = self._client
-        if client is None:
-            client = Client(
-                callback_api_version=CallbackAPIVersion.VERSION2,
-                client_id=self._mqtt_config.get("client_id", self.name or "proxy-sensor"),
-            )
-            self._client = client
-
-        client.on_connect = self._on_connect
-        client.on_message = self._on_message
-
-        username = self._mqtt_config.get("username")
-        password = self._mqtt_config.get("password")
-        if username is not None:
-            client.username_pw_set(username, password)
-
-        if self._mqtt_config.get("tls_insecure", False):
-            client.tls_set(cert_reqs=ssl.CERT_NONE)
-            client.tls_insecure_set(True)
-
-        await asyncio.to_thread(
-            client.connect_async,
-            host,
-            int(self._mqtt_config.get("port", 1883)),
-            keepalive=int(self._mqtt_config.get("keepalive", 60)),
-        )
-        client.loop_start()
+        # subscribe using manager (manager ensures client exists)
+        await self._manager.subscribe(self._state_topic, self._on_message)
         self._connected = True
 
-    def _on_connect(self, client: Any, userdata: Any, flags: Any, rc: int, properties: Any = None) -> None:
-        logger.info(f"ProxySensor subscribing to MQTT topic {self._state_topic}")
-        client.subscribe(self._state_topic, qos=1)
 
     def _on_message(self, client: Any, userdata: Any, msg: Any) -> None:
         payload = None

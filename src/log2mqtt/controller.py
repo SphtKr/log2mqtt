@@ -11,6 +11,7 @@ from log2mqtt.logprocessor import LogProcessor
 from log2mqtt.sensor import Sensor
 from log2mqtt.mqtt_observer import MQTTActivityObserver
 from log2mqtt.proxy import ProxySensor
+from log2mqtt.mqtt_manager import MQTTManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class Controller:
         self._ignore_activity = None
         self._activities = []
         self._sensors = {}
-        self._mqtt_senders = []
+        self._mqtt_connectors = []
         ...
 
     def load_config(self, config_path: str):
@@ -37,7 +38,7 @@ class Controller:
     
         self._activities = []
         self._sensors = {}
-        self._mqtt_senders = []
+        self._mqtt_connectors = []
 
         if 'ignore' in self._config:
             self._ignore_activity = Activity({"name":"ignore", "patterns": self._config['ignore']})
@@ -46,6 +47,11 @@ class Controller:
             self._activities.append(Activity(activity_config))
 
         mqtt_config = self._config.get('mqtt', {}) or {}
+
+        # If MQTT is configured, create a default manager for the broker
+        mqtt_manager = None
+        if mqtt_config.get('host'):
+            mqtt_manager = MQTTManager.get_default(mqtt_config)
 
         for sensor_config in self._config.get('sensors', []):
             name = sensor_config.get('name','sensor')
@@ -79,20 +85,22 @@ class Controller:
                 if sensor_config.get('type','') != 'proxy':
                     logger.warning(f"Non-proxy sensor {name} has topic, skipping!")
                     continue
-                if len(sensor_config.get('proxy',[])) <= 0:
+                if len(sensor_config.get('topic',[])) <= 0:
                     logger.warning(f"No topic for proxy sensor {name}, skipping.")
                     continue
                 topic = sensor_config.get('topic')
-                sensor = ProxySensor(name, "proxy", topic)
+                sensor = ProxySensor(name, "proxy", topic, mqtt_manager=mqtt_manager)
+                self._mqtt_connectors.append(sensor)
             else:
                 sensor = Sensor(name, sensor_config.get('type', 'sensor'))
             self._sensors[name] = sensor
             for alias in sensor_config.get('aliases', []):
                 self._sensors[alias] = sensor
             if mqtt_config.get('host') and sensor_config.get("publish", False):
-                sender = MQTTActivityObserver(sensor, mqtt_config)
+                sender = MQTTActivityObserver(sensor, mqtt_manager=mqtt_manager)
                 sensor.register_observer(sender)
-                self._mqtt_senders.append(sender)
+                self._mqtt_connectors.append(sender)
+
         logger.debug(f"{self._sensors=}")
 
 
@@ -107,8 +115,8 @@ class Controller:
         except IOError:
             raise Exception(f"An error occurred while reading the file {self._config['source']}.")
 
-        for sender in self._mqtt_senders:
-            await sender.connect()
+        for connector in self._mqtt_connectors:
+            await connector.connect()
 
         self._logparser = LogProcessor(self._config['source'], self._log_callback)
         self._update_task = asyncio.create_task(self._update_timer())
