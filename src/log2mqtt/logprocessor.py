@@ -3,7 +3,9 @@ import asyncio
 import os
 import re
 from typing import Callable, Dict, Any, List
+import logging
 
+logger = logging.getLogger(__name__)
 
 class LogProcessor:
     """
@@ -32,7 +34,9 @@ class LogProcessor:
         callback: A function to call when a log line is successfully parsed.
                   Signature: callback(url, method, useragent)
         """
-        self.log_path = config.get('path')
+        self.log_path = config.get('path', 0)
+        if not self.log_path: # anything falsy means STDIN
+            self.log_path = 0
         self.delimiter = config.get('delimiter', '\t')
         self.empty_value = config.get('emptyValue', '') 
 
@@ -60,8 +64,12 @@ class LogProcessor:
         # Open the file normally (blocking)
         with open(self.log_path, 'r') as f:
             self._file = f
-            # Seek to end
-            self._file.seek(0, 2)
+            if self.log_path: # Not STDIN
+                try:
+                    # Seek to end
+                    self._file.seek(0, 2)
+                except:
+                    logger.warning(f"Unable to seek to end of source! Starting at beginning!")
             
             while True:
                 # Offload the blocking read to a thread executor

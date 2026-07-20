@@ -105,15 +105,18 @@ class Controller:
 
 
     async def start(self):
-        try:
-            with open(self._config['source']['path'], 'r'):
-                pass
-        except KeyError:
-            raise Exception(f"Source path not defined at source.path in config; verify configuration.")
-        except FileNotFoundError:
-            raise Exception(f"The file {self._config['source']['path']} was not found.")
-        except IOError:
-            raise Exception(f"An error occurred while reading the file {self._config['source']}.")
+        if self._config['source'].get('path', None): # anything falsy means STDIN
+            try:
+                with open(self._config['source']['path'], 'r'):
+                    pass
+            except KeyError:
+                raise Exception(f"Source path not defined at source.path in config; verify configuration.")
+            except FileNotFoundError:
+                raise Exception(f"The file {self._config['source']['path']} was not found.")
+            except IOError:
+                raise Exception(f"An error occurred while reading the file {self._config['source']}.")
+        else:
+            logger.info(f"Source path not specified, using STDIN.")
 
         for connector in self._mqtt_connectors:
             await connector.connect()
